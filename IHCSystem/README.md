@@ -12,6 +12,8 @@
 
 *For convenient and easy for testing purpose*, sets of data were illustrated as follow:
 
+**The password set in program: for easy testing ONLY!!!**
+
 | User  Type            | Users  ID | Password |
 | --------------------- | --------- | -------- |
 | Resident              | P1        | 123      |
