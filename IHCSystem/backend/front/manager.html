@@ -1,0 +1,509 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Integrated Health Care System</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/sign-in/">
+    <link rel="icon" href="icon.ico">
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+
+
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+    <script>
+        // get global var
+        let backend_server = ''; //'http://192.168.3.27:8809';
+
+        let id_info_map = {};
+
+        // request remote info 
+        // TODO: /api/v1/getElderInfo
+        $.ajax({
+            url: '/api/v1/getElderList',
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            success: function (msg) {
+                console.log(msg);
+
+                if (msg['status'] != 0) {
+                    alert(msg['message']);
+                    return;
+                }
+
+                let loginIds = msg['data']['loginID'];
+
+                let req_finish = 0;
+                loginIds.forEach(function (loginId) {
+                    if (loginId == undefined) return;
+                    $.ajax({
+                        url: '/api/v1/getElderInfo_manager',
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        data: JSON.stringify({
+                            'loginID': loginId
+                        }),
+                        success: function (msg) {
+                            if (msg['status'] != 0) {
+                                alert(msg['message']);
+                            } else {
+                                console.log(msg['data']);
+                                id_info_map[loginId] = msg['data'];
+                                updateTable(id_info_map);
+                            }
+                            req_finish += 1;
+                        },
+                        error: function (...args) {
+                            alert("server error");
+                            req_finish += 1;
+                        }
+                    });
+                });
+
+                // while (req_finish < loginIds.length) ; 
+                // console.log('updateTable');
+                // updateTable(id_info_map);
+            },
+            error: function (...args) {
+                alert("server error");
+            }
+        });
+
+        // TODO: 
+        function setEatMedicineTime(loginId, tl) {
+            console.log('setEatMedicineTime', loginId, tl);
+
+            $.ajax({
+                url: backend_server + '/api/v1/setElderMedicineInfo',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({
+                    'loginID': loginId,
+                    'scheduledMedicineTime': tl
+                }),
+                dataType: 'json',
+                success: function (msg) {
+                    if (msg['status'] != 0) {
+                        alert(msg['message']);
+                        return;
+                    } else {
+                        alert('Changed');
+                    }
+                },
+                error: function (...args) {
+                    console.log(args);
+                    alert("server error");
+                }
+
+            })
+        }
+
+        function setElderPersonalInfo(loginID, info) {
+            info['loginID'] = loginID;
+            console.log(info);
+            $.ajax({
+                url: backend_server + '/api/v1/setElderPersonalInfo',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify(info),
+                dataType: 'json',
+                success: function (msg) {
+                    if (msg['status'] != 0) {
+                        alert(msg['message']);
+                        return;
+                    } else {
+                        alert('Changed!');
+                    }
+                },
+                error: function (...args) {
+                    console.log(args);
+                    alert("Changed");
+                }
+
+            })
+        }
+
+        function btn_eat_medicine_schedule(e) {
+            console.log('clicked', e.target);
+            let loginID = $(e.target).closest('tr').find('td')[0].textContent;
+            updateEatScheduleTable(loginID);
+            $('#dialog_eat_medicine_schedule').dialog();
+        }
+
+
+        function btn_view_gate_records_onclick(event) {
+            let target = event.target;
+            let loginID = $(target).closest('tr').find('td')[0].textContent;
+
+            // document.location = 'gateRecords.html?loginId=' + loginID;
+            let name = $(target).closest('tr').find('td')[1].textContent;
+            let dialog = $("#dialog_gate_records");
+            let title = "Access Record (" + name + ")";
+            dialog.attr('title', "Access Record（" + name + "）");
+            dialog.parent().find('.ui-dialog-title').html(title);
+            // let thead = tb.find("thead");
+            let table_str = '';
+
+            let gateRecords = id_info_map[loginID]['gateRecords'];
+            let i = 0;
+            gateRecords.forEach(function (x) {
+                console.log(x);
+                table_str += `<tr><th>${i}</th><td>${x['isGetIn'] ? "Entry" : "Leave"}</td> <td>${x['time']}</td></tr>`;
+                i++;
+            });
+            $('#tb_gate_records > tbody').html(table_str);
+            $("#dialog_gate_records").dialog();
+        } 
+        
+
+        function btn_view_eat_medicine_records_onclick(event) {
+            // tb_eat_medicine_records
+            let target = event.target;
+            let loginID = $(target).closest('tr').find('td')[0].textContent;
+
+            // document.location = 'gateRecords.html?loginId=' + loginID;
+            let name = $(target).closest('tr').find('td')[1].textContent;
+            let dialog = $("#dialog_gate_records");
+            dialog.attr('title', "Medicine Taking Record（" + name + "）");
+            // let thead = tb.find("thead");
+            let table_str = '';
+
+            let medicineRecords = id_info_map[loginID]['medicineRecords'];
+            let i = 0;
+            medicineRecords.forEach(function (x) {
+                console.log(x);
+                table_str += `<tr><th>${i}</th><td>${x['time']}</td></tr>`;
+                i++;
+            });
+            $('#tb_eat_medicine_records > tbody').html(table_str);
+            $("#dialog_eat_medicine_records").dialog();
+        }
+
+        function btn_modify_info_onclick(e) {
+            let il = $(e.target).closest("tr").find("input");
+            let Description = il[0].value;
+            let forbiddenFood = il[1].value;
+            let loginID = $(e.target).closest('tr').find('td')[0].textContent;
+            setElderPersonalInfo(loginID, {
+                'Description': Description,
+                'forbiddenFood': forbiddenFood
+            })
+        }
+
+        function btn_delete_elder(e) {
+            let loginID = $(e.target).closest('tr').find('td')[0].textContent;
+            $.ajax({
+                url: backend_server + '/api/v1/delElder',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({
+                    'loginID': loginID,
+                }),
+                dataType: 'json',
+                success: function (msg) {
+                    if (msg['status'] != 0) {
+                        alert(msg['message']);
+                        return;
+                    } else {
+                        alert('Deleted');
+                        location.reload();
+                    }
+                },
+                error: function (...args) {
+                    console.log(args);
+                    alert("Deleted");
+                }
+            })
+        }
+
+        function updateTable(id_info_map) {
+            let table_str = '';
+            let i = 0;
+            for (let key in id_info_map) {
+                if (typeof (key) == "undefined")
+                    break;
+                let info = id_info_map[key];
+
+                table_str += `<tr>
+                    <th scope="row">${i}</th>
+                    <td>${key}</td>
+                    <td>${info['name']}</td>
+                    <td>${info['isMale'] ? "Male" : "Female"}</td>
+                    <td>${info['age']}</td>
+                    <td>${info['inDate']}</td>
+                    <td>
+                        <div class="input-group mb-3 input-group-sm">
+                            <input type="text" class="form-control" value="${info['Description']}" placeholder="" aria-label="" aria-describedby="button-addon2">
+                        </div>
+                    </td>
+                    <td>
+                        <div class="input-group mb-3 input-group-sm">
+                            <input type="text" class="form-control" value="${info['forbiddenFood']}" placeholder="" aria-label="" aria-describedby="button-addon2">
+                          </div>
+                    </td>
+                    <td>
+                        <button onclick="btn_modify_info_onclick(event)" class="btn btn-outline-secondary btn-sm" type="button" id="button-addon2">Modify</button>
+                    </td>
+                    <td>
+                        <button onclick="btn_view_eat_medicine_records_onclick(event)" class="btn btn-outline-secondary btn-sm"
+                            type="button">View</button>
+                    </td>
+                    <td>
+                        <button onclick="btn_view_gate_records_onclick(event)" class="btn btn-outline-secondary btn-sm"
+                            type="button">View</button>
+                    </td>
+                    <td>
+                        <button onclick="btn_eat_medicine_schedule(event)" class="btn btn-outline-secondary btn-sm"
+                        type="button">View/Change</button>
+                    </td>
+                    <td>
+                        <button onclick="btn_delete_elder(event)" class="btn btn-outline-secondary btn-sm"
+                        type="button">Delete</button>
+                    </td>
+                </tr>`;
+                i++;
+            }
+
+            $("#tb_info > tbody").html(table_str);
+
+            // $("#gate_records_tb").
+        }
+
+
+        function updateEatScheduleTable(loginID) {
+            let html_str = '';
+            time_list = id_info_map[loginID]['eatMedicineTime'];
+            time_list.forEach(function (t) {
+                html_str += `
+                <li class="list-group-item">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" checked="true">
+                        <input type="text" class="form-control" value="${t}" placeholder=""
+                        aria-label="" aria-describedby="basic-addon2">
+                    </div>
+                </li>`
+            });
+            $("#ul_eat_medicine_schedule").html(html_str);
+            $('#dialog_eat_medicine_schedule').attr('loginID', loginID);
+        }
+
+        function btn_eat_medicine_schedule_add_onclick(e) {
+            console.log('add clicked', e.target);
+            let loginID = $('#dialog_eat_medicine_schedule').attr('loginID');
+            console.log(loginID);
+            id_info_map[loginID]['eatMedicineTime'].push('00:00');
+            updateEatScheduleTable(loginID);
+        }
+
+        function btn_eat_medicine_schedule_modify_onclick(e) {
+            let loginID = $('#dialog_eat_medicine_schedule').attr('loginID');
+            let time_list = [];
+
+            let items = $('#ul_eat_medicine_schedule').find('li');
+            for (let i = 0; i < items.length; i++) {
+                if ($(items[i]).find('input')[0].checked) {
+                    let t = $(items[i]).find('input')[1].value;
+                    time_list.push(t);
+                }
+            }
+            setEatMedicineTime(loginID, time_list);
+        }
+
+        function btn_add_elder(e) {
+            if ($('#new_elder_tr').size() > 0)
+                return;
+            let tb_str = `
+            <table id="tb_info" class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Sex</th>
+                        <th scope="col">Aged</th>
+                        <th scope="col">Checkin Date</th>
+                        <th scope="col">Health Care Record</th>
+                        <th scope="col">Diet alert</th>
+                        <th scope="col">RFID</th>
+                        <th scope="col">Password</th>
+                    </tr>
+                </thead>
+                <tbody>
+            <tr id='new_elder_tr'>
+            <th>*</th>` +
+                `<td>
+                <div class="input-group mb-3 input-group-sm">
+                    <input type="text" class="form-control" value="" placeholder="" aria-label="" aria-describedby="button-addon2">
+                </div>
+            </td>`.repeat(9) + `</tr> </tbody> </table>`
+
+            $(tb_str).insertAfter('#tb_info');
+        }
+
+        function uuidv4() {
+            return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, c =>
+                (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+            );
+        }
+
+
+        function btn_apply_add(e) {
+            let values = $('#new_elder_tr').find('input');
+            $.ajax({
+                url: backend_server + '/api/v1/addElder',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                data: JSON.stringify({
+                    'elder': {
+                        'loginID': values[0].value,
+                        'NAME': values[1].value,
+                        'isMale': values[2].value == 'Male' ? 1 : 0,
+                        'AGE': values[3].value,
+                        'inDate': values[4].value,
+                        'Description': values[5].value,
+                        'forbiddenFood': values[6].value,
+                        'UUID': uuidv4(),
+                        'RFIDInfo': values[7].value,
+                        'loginPasswd': CryptoJS.SHA256(values[8].value).toString(CryptoJS.enc.Hex),
+                    },
+                }),
+                dataType: 'json',
+                success: function (msg) {
+                    if (msg['status'] != 0) {
+                        alert(msg['message']);
+                        return;
+                    } else {
+                        alert('Added');
+                        location.reload();
+                    }
+                },
+                error: function (...args) {
+                    console.log(args);
+                    alert("server error");
+                }
+            })
+        }
+
+        function btn_set_passwd(e) {
+            console.log(e);
+            $("#dialog_set_passwd").dialog();
+        }
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-light bg-light">
+        <span class="navbar-brand mb-0 h1" style="font-weight: bold">
+            Integrated Health Care System - Manager
+        </span>
+        <div class="navbar-nav flex-row ml-md-auto d-none d-md-flex">
+            <a href="#" onclick="btn_set_passwd(event)" style="margin: 10px;">
+                Change Password
+            </a>
+            <a href="index.html" onclick="document.cookie = '';" style="margin: 10px;">Logout</a>
+        </div>
+    </nav>
+    <!-- <h1 style="font-weight: bold"> Integrated Health Care System - Manager </h1> -->
+    <table id="tb_info" class="table">
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Sex</th>
+                <th scope="col">Aged</th>
+                <th scope="col">Checkin Date</th>
+                <th scope="col">Health Care Record</th>
+                <th scope="col">Diet alert</th>
+                <th scope="col">Modify</th>
+                <th scope="col">Medicine Taking Record</th>
+                <th scope="col">Access Record</th>
+                <th scope="col">Medicine Taking Time (format: xx:xx) </th>
+                <th scope="col">Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <div class="text-center">
+        <button onclick="btn_add_elder(event)" class="btn btn-outline-secondary mx-auto" style="min-width: 10%;"
+            type="button">Add</button>
+        <!-- <p style="width: 1%;"></p> -->
+        <button onclick="btn_apply_add(event)" class="btn btn-outline-secondary mx-auto" style="min-width: 10%;"
+            type="button">Apply</button>
+    </div>
+
+
+    <div id="dialog_gate_records" style="display: none;" title="Access Record">
+        <table id="tb_gate_records" class="table">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Entry/Leave</th>
+                    <th scope="col">Time</th>
+                </tr>
+            </thead>
+            <tbody>
+
+            </tbody>
+        </table>
+    </div>
+
+    <div id="dialog_eat_medicine_records" style="display: none;" title="Medicine Taking Record">
+        <table id="tb_eat_medicine_records" class="table">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Time</th>
+                </tr>
+            </thead>
+            <tbody>
+
+            </tbody>
+        </table>
+    </div>
+
+
+    <div id="dialog_eat_medicine_schedule" style="display: none;" title="Medicine Taking Record">
+        <ul class="list-group" id="ul_eat_medicine_schedule">
+        </ul>
+        <p style="margin: auto; text-align: center; width: 100%;">
+            <button style="width: 100%;" type="button" onclick="btn_eat_medicine_schedule_add_onclick(event)"
+                class="btn btn-light btn-sm">+</button>
+        </p>
+        <button style="width: 100%;" type="button" onclick="btn_eat_medicine_schedule_modify_onclick(event)"
+            class="btn btn-primary btn-sm">Change</button>
+    </div>
+
+    <div id="dialog_set_passwd" style="display: none;" title="Change Password">
+        <div class="input-group mb-3 input-group-sm">
+            <input id="password" type="text" class="form-control" value="" placeholder="" aria-label=""
+                aria-describedby="button-addon2">
+        </div>
+        <div class="text-center">
+            <button type="button" onclick="btn_change_password(event)" class="btn btn-primary btn-sm">Change</button>
+        </div>
+    </div>
+
+</body>
+
+</html>

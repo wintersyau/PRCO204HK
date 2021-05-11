@@ -1,0 +1,228 @@
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Integrated Health Care System</title>
+
+    <link rel="canonical" href="https://getbootstrap.com/docs/5.0/examples/sign-in/">
+    <link rel="icon" href="icon.ico">
+
+    <!-- Bootstrap core CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
+        integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"
+        integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+        crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
+        integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+        crossorigin="anonymous"></script>
+
+    <script type="text/javascript"
+        src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
+
+
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+    <script>
+        // get global var
+        let backend_server = ''; // 'http://192.168.3.27:8809';
+        /*
+{
+    'status': 0
+    'data': {
+        'dailyRecords': [{
+                'heartBeat': int,
+                'bloodPressureLow': int,
+                'bloodPressureHigh': int,
+                'recordDate': date
+            }],
+        'eatMedicineRecord':[{
+            'eatMedicineTime': time,
+        }]
+    }
+}
+        */
+
+        let loginID = 'p1';
+        let data = {};
+
+        $.ajax({
+            url: '/api/v1/getElderInfo_elder',
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            success: function (msg) {
+                console.log(msg);
+                if (msg['status'] != 0) {
+                    alert(msg['message']);
+
+                } else {
+                    data = msg['data'];
+                    let tb_daily_records_tbody = $("#tb_daily_records > tbody");
+                    let dailyRecords = data['dailyRecords'];
+                    let forbiddenFood = data['forbiddenFood'];
+                    let table_str = '';
+                    let i = 0;
+                    $("#p_diet_alert").html(forbiddenFood);
+                    console.log(dailyRecords);
+                    dailyRecords.forEach(function (x) {
+                        table_str += `<tr><th>${i}</th>
+                            <td>${x['heartbeat']}</td> 
+                            <td>${x['bloodPressureLow']}</td>
+                            <td>${x['bloodPressureHigh']}</td>
+                            <td>${x['date']}</td>
+                        </tr>`;
+                        i++;
+                    });
+                    console.log(tb_daily_records_tbody);
+                    tb_daily_records_tbody.html(table_str);
+
+                    let tb_eat_medicine_time_body = $("#tb_eat_medicine_time > tbody");
+                    let medicineRecords = data['medicineRecords'];
+                    table_str = '';
+                    i = 0;
+                    medicineRecords.forEach(function (x) {
+                        table_str += `<tr><th>${i}</th>
+                            <td>${x['time']}</td>
+                        </tr>`
+
+                    });
+                    tb_eat_medicine_time_body.html(table_str);
+                }
+            },
+            error: function (...args) {
+                console.log(args);
+                alert('server error');
+            }
+        });
+
+        $.ajax({
+            url: backend_server + '/api/v1/isTimeToChangePasswd',
+            method: 'GET',
+            dataType: 'json',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            success: function (msg) {
+                if (msg['status'] == 0) {
+                    console.log(msg['data']);
+                    if (msg['data']['needSet']) {
+                        alert("Please change your password.");
+                    }
+                } else {
+                    alert(msg['message']);
+                }
+            },
+            error: function (...args) {
+                console.log(args);
+                alert('server error');
+            }
+        })
+
+        function btn_set_passwd(e) {
+            console.log(e);
+            $("#dialog_set_passwd").dialog();
+        }
+
+        function btn_change_password(e) {
+            let passwd = $("#password")[0].value;
+            $.ajax({
+                url: backend_server + '/api/v1/setPassword',
+                method: 'POST',
+                dataType: 'json',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({ 'passwd': CryptoJS.SHA256(passwd).toString(CryptoJS.enc.Hex) }),
+                success: function (msg) {
+                    if (msg['status'] == 0) {
+                        console.log(msg['data']);
+                        alert("Change password success!");
+                    } else {
+                        alert(msg['message']);
+                    }
+                },
+                error: function (...args) {
+                    console.log(args);
+                    alert('server error');
+                }
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <nav class="navbar navbar-light bg-light">
+        <span class="navbar-brand mb-0 h1" style="font-weight: bold">
+            <h1> Integrated Health Care System - Resident </h1>
+        </span>
+        <div class="navbar-nav flex-row ml-md-auto d-none d-md-flex">
+            <a href="#" onclick="btn_set_passwd(event)" style="margin: 10px;">
+                <h3> Change Password </h3>
+            </a>
+            <a href="index.html" onclick="document.cookie = '';" style="margin: 10px;">
+                <h3> Logout </h3>
+            </a>
+        </div>
+    </nav>
+
+    <br />
+
+    <h2> Diet alert </h2>
+
+    <p id="p_diet_alert" style="font-size: 25px; font-weight: bold"> </p>
+
+    <br />
+
+    <h2> Health Record </h3>
+        <table id="tb_daily_records" class="table table-hover" style="font-size: 25px;">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">HR</th>
+                    <th scope="col">DIA（mmHg）</th>
+                    <th scope="col">SYS（mmHg）</th>
+                    <th scope="col">Record Time</th>
+                </tr>
+            </thead>
+            <tbody>
+
+            </tbody>
+        </table>
+
+        <br />
+
+        <h2> Medicine Taking Time </h3>
+            <table id="tb_eat_medicine_time" class="table table-hover" style="font-size: 25px;">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+
+                </tbody>
+            </table>
+
+            <div id="dialog_set_passwd" style="display: none;" title="Change Password">
+                <div class="input-group mb-3 input-group-sm">
+                    <input id="password" type="text" class="form-control" value="" placeholder="" aria-label=""
+                        aria-describedby="button-addon2">
+                </div>
+                <div class="text-center">
+                    <button type="button" onclick="btn_change_password(event)"
+                    class="btn btn-primary btn-sm">Change</button>
+                </div>
+            </div>
+</body>
+
+</html>
